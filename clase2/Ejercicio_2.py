@@ -154,7 +154,7 @@ def consultar_api_paises(nombre_pais):
         return None
 
 
-def formatear_respuesta(consulta_usuario, datos_pais):
+def formatear_respuesta(consulta_usuario, datos_pais, historial=None):
     """
     Usa el LLM para formatear los datos del país en una respuesta natural.
     
@@ -237,9 +237,16 @@ def formatear_respuesta(consulta_usuario, datos_pais):
     # TODO: Hacer la llamada al LLM
     # Usa client.chat.completions.create()
     # temperature: 0.7 (para respuestas más naturales)
+    mensajes = []
+
+    if historial:
+        mensajes.extend(historial)
+
+    mensajes.append({"role": "user", "content": prompt})
+
     response = client.chat.completions.create(
             model="gpt-4o-mini",  # <-- Modelo seleccionado
-            messages=[{"role": "user", "content": prompt}],
+            messages=mensajes,
             temperature=0.7,
             max_tokens=500
         )
@@ -252,7 +259,7 @@ def formatear_respuesta(consulta_usuario, datos_pais):
 
 
 
-def agente_paises(consulta_usuario):
+def agente_paises(consulta_usuario, historial=None):
     """
     Función principal del agente que orquesta todo el flujo.
     
@@ -262,6 +269,9 @@ def agente_paises(consulta_usuario):
     Returns:
         Respuesta final del agente
     """
+    if historial is None:
+        historial = []
+
     print(f"\n🤖 Agente: Procesando tu consulta...\n")
     
     
@@ -286,7 +296,7 @@ def agente_paises(consulta_usuario):
     
     # PASO 4: Formatear la respuesta con los aspectos identificados
     print("💬 Paso 4: Generando respuesta personalizada...\n")
-    respuesta = formatear_respuesta(consulta_usuario, datos)
+    respuesta = formatear_respuesta(consulta_usuario, datos, historial=historial)
     
     return respuesta
 
@@ -309,6 +319,16 @@ def main():
     print("\nEscribe 'salir' para terminar.")
     print("=" * 80)
     
+    historial = [
+        {
+            "role": "system",
+            "content": (
+                "Eres un asistente de información sobre países. Responde siempre en español, "
+                "sé amable y apóyate en los datos proporcionados para dar respuestas claras."
+            ),
+        }
+    ]
+
     while True:
         # TODO: Solicitar la consulta del usuario
         consulta = input("\n👤 Tu consulta: ").strip()
@@ -323,14 +343,18 @@ def main():
             print("⚠️  Por favor, escribe una consulta.")
             continue
         
+        historial.append({"role": "user", "content": consulta})
+
         # TODO: Llamar al agente con la consulta
-        respuesta = agente_paises(consulta)
+        respuesta = agente_paises(consulta, historial=historial)
         
         
         
         # TODO: Mostrar la respuesta
         print(f"\n🤖 Agente: {respuesta}")
         print("\n" + "-" * 80)
+
+        historial.append({"role": "assistant", "content": respuesta})
 
 
 if __name__ == "__main__":
